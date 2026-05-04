@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>摄像头扫码工具 | 实时二维码/条形码扫描</title>
+    <!-- html5-qrcode 库: 稳定高效的扫码解决方案 (支持多种条码格式) -->
+    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none; /* 避免拖拽选中文本影响体验 */
+        }
+
+        body {
+            font-family: system-ui, 'Segoe UI', 'Roboto', 'Noto Sans', sans-serif;
+            background: linear-gradient(145deg, #0b2b26 0%, #0e2a2a 100%);
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+        }
+
+        /* 主卡片容器 */
+        .scanner-card {
+            max-width: 700px;
+            width: 100%;
+            background: rgba(22, 32, 35, 0.85);
+            backdrop-filter: blur(2px);
+            border-radius: 48px;
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+            padding: 20px 20px 30px;
+            transition: all 0.2s ease;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin: 0 0 6px 0;
+            letter-spacing: -0.3px;
+            background: linear-gradient(135deg, #F9F3E2, #C0E0D9);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+
+        .sub {
+            text-align: center;
+            color: #9bb8b0;
+            margin-top: -8px;
+            margin-bottom: 20px;
+            font-size: 0.85rem;
+            border-bottom: 1px dashed #2e554b;
+            display: inline-block;
+            width: auto;
+            padding-bottom: 6px;
+        }
+
+        /* 视频预览区容器 (相框效果) */
+        .video-container {
+            background: #000;
+            border-radius: 32px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+            margin-bottom: 20px;
+            border: 1px solid rgba(200, 230, 210, 0.5);
+        }
+
+        #reader {
+            width: 100%;
+            min-height: 380px;
+            background: #111;
+        }
+
+        /* 控制栏: 摄像头切换 + 闪光灯(移动端) + 停止/启动 */
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 14px;
+            margin: 18px 0 20px;
+        }
+
+        button {
+            background: #1f3d38;
+            border: none;
+            font-size: 1rem;
+            font-weight: 500;
+            padding: 10px 20px;
+            border-radius: 60px;
+            color: #eef4f0;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(4px);
+            letter-spacing: 0.5px;
+        }
+
+        button i {
+            font-style: normal;
+            font-weight: 600;
+            font-size: 1.2rem;
+        }
+
+        button:hover {
+            background: #2b5b52;
+            transform: scale(0.97);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        button:active {
+            transform: scale(0.96);
+        }
+
+        .primary-btn {
+            background: #2c7a5e;
+            color: white;
+            box-shadow: 0 4px 12px rgba(44, 122, 94, 0.4);
+        }
+
+        .primary-btn:hover {
+            background: #3e9777;
+        }
+
+        .stop-btn {
+            background: #592c2c;
+        }
+        .stop-btn:hover {
+            background: #803b3b;
+        }
+
+        /* 扫码结果区域 */
+        .result-area {
+            background: #162725e0;
+            backdrop-filter: blur(8px);
+            border-radius: 28px;
+            padding: 12px 20px;
+            margin-top: 8px;
+            border-left: 5px solid #7fd1b0;
+        }
+
+        .result-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            color: #8dc9b5;
+            margin-bottom: 6px;
+        }
+
+        .result-content {
+            font-size: 1.1rem;
+            font-weight: 500;
+            word-break: break-all;
+            color: #f1faf5;
+            background: #0a1f1c;
+            padding: 12px 14px;
+            border-radius: 20px;
+            font-family: 'SF Mono', 'Menlo', monospace;
+        }
+
+        .history {
+            margin-top: 18px;
+            border-top: 1px solid #2d564b;
+            padding-top: 12px;
+        }
+
+        .history-title {
+            font-size: 0.8rem;
+            color: #abd9cb;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .history-list {
+            max-height: 130px;
+            overflow-y: auto;
+            font-size: 0.8rem;
+            background: #0a1e1b;
+            border-radius: 20px;
+            padding: 6px 10px;
+        }
+
+        .history-item {
+            padding: 6px 8px;
+            border-bottom: 1px solid #2a5045;
+            color: #cfe6df;
+            font-family: monospace;
+            word-break: break-all;
+        }
+
+        .history-item:last-child {
+            border-bottom: none;
+        }
+
+        .footer-note {
+            font-size: 0.7rem;
+            text-align: center;
+            color: #5c8b7e;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 550px) {
+            .scanner-card {
+                padding: 14px 16px 24px;
+            }
+            button {
+                padding: 8px 16px;
+                font-size: 0.85rem;
+            }
+            .result-content {
+                font-size: 0.9rem;
+            }
+        }
+
+        /* html5-qrcode 自带区域微调 */
+        #reader video {
+            border-radius: 24px;
+            object-fit: cover;
+        }
+        /* 隐藏默认的“选择摄像头”下拉，我们自定义控制，但仍保留备用 */
+        #reader__dashboard_section_csr {
+            display: none !important;
+        }
+        /* 避免自带的边框怪异 */
+        .html5-qrcode-element {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div class="scanner-card">
+    <h1>📷 智能扫码器</h1>
+    <div style="text-align: center; margin-top: -6px;">
+        <span class="sub">实时识别 · 二维码 / 条形码</span>
+    </div>
+
+    <!-- 摄像头预览及扫描区域 -->
+    <div class="video-container">
+        <div id="reader"></div>
+    </div>
+
+    <!-- 操作按钮组 (支持切换摄像头、闪光灯、停止扫描) -->
+    <div class="controls">
+        <button id="startScannerBtn" class="primary-btn"> ▶ 启动摄像头</button>
+        <button id="switchCameraBtn"> 🔄 翻转摄像头</button>
+        <button id="toggleTorchBtn"> 💡 闪光灯</button>
+        <button id="stopScannerBtn" class="stop-btn"> ⏹️ 停止扫描</button>
+    </div>
+
+    <!-- 扫码结果展示区 -->
+    <div class="result-area">
+        <div class="result-label">✨ 最新扫码结果</div>
+        <div class="result-content" id="scanResult">等待扫码...</div>
+    </div>
+
+    <!-- 扫码历史记录 -->
+    <div class="history">
+        <div class="history-title">
+            📋 历史记录
+            <button id="clearHistoryBtn" style="background:#2c5247; padding:4px 12px; font-size:0.7rem;">清空</button>
+        </div>
+        <div class="history-list" id="historyList">
+            <div class="history-item" style="color:#6e9587;">暂无记录</div>
+        </div>
+    </div>
+    <div class="footer-note">
+        ⚡ 请确保已授权摄像头权限 | 支持QR Code、EAN-13、Code128等多种格式
+    </div>
+</div>
+
+<script>
+    // ---------- 全局变量 ----------
+    let html5QrCode = null;          // html5-qrcode 实例
+    let isScanning = false;          // 当前扫描状态
+    let currentCameraId = null;      // 当前使用的摄像头设备ID
+    let availableCameras = [];        // 存储所有可用摄像头列表
+    let torchAvailable = false;       // 闪光灯是否可用（移动端部分支持）
+    let currentTorchState = false;    // 记录闪光灯状态
+
+    // DOM 元素
+    const readerDiv = document.getElementById("reader");
+    const startBtn = document.getElementById("startScannerBtn");
+    const switchBtn = document.getElementById("switchCameraBtn");
+    const torchBtn = document.getElementById("toggleTorchBtn");
+    const stopBtn = document.getElementById("stopScannerBtn");
+    const clearHistoryBtn = document.getElementById("clearHistoryBtn");
+    const scanResultSpan = document.getElementById("scanResult");
+    const historyListDiv = document.getElementById("historyList");
+
+    // 存储扫描历史 (最多20条，去重保留最新顺序)
+    let scanHistory = [];
+
+    // ---------- 辅助函数 ----------
+    function updateHistoryUI() {
+        if (!historyListDiv) return;
+        if (scanHistory.length === 0) {
+            historyListDiv.innerHTML = '<div class="history-item" style="color:#6e9587;">暂无记录</div>';
+            return;
+        }
+        // 倒序展示 (最新的在上方)
+        const reversed = [...scanHistory].reverse();
+        historyListDiv.innerHTML = reversed.map(text => `<div class="history-item">📌 ${escapeHtml(text)}</div>`).join('');
+    }
+
+    // 简单的防XSS
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
+            return c;
+        });
+    }
+
+    // 添加扫描结果到历史 (避免重复刷屏保留最近同类)
+    function addToHistory(resultText) {
+        if (!resultText || resultText.trim() === "") return;
+        // 去重逻辑：如果最新一条相同则不重复添加，但为了体验，相同仍加但通常最好避免完全重复连续，不过没问题
+        // 但是为了方便查阅，如果最新一条相同且刚刚添加过，但连续扫码一般也需要记录多次？但更优雅：只加入不同的。
+        if (scanHistory.length > 0 && scanHistory[scanHistory.length - 1] === resultText) {
+            // 相同内容不叠加，但仍刷新结果区域，历史不追加
+            return;
+        }
+        scanHistory.push(resultText);
+        if (scanHistory.length > 20) scanHistory.shift();
+        updateHistoryUI();
+    }
+
+    // 显示当前扫描结果 (并添加到历史、自动复制可选？不加自动复制避免烦人)
+    function onScanSuccess(decodedText, decodedResult) {
+        // 防止在快速连续识别时重复弹同一条（借助html5-qrcode本身频率控制，不过我们还是额外去重显示）
+        const currentLatest = scanResultSpan.innerText;
+        if (currentLatest !== decodedText) {
+            scanResultSpan.innerText = decodedText;
+            // 播放微震动? 可忽略
+            addToHistory(decodedText);
+            // 可选：附加蜂鸣或控制台输出
+            console.log(`[扫码成功] ${decodedText}`, decodedResult);
+            // 在移动端可增加轻微触感反馈 (如果支持)
+            if (navigator.vibrate) navigator.vibrate(80);
+        } else {
+            // 内容相同但为了实时性，不重复操作添加历史
+            // 但为了确保一些特殊情况，可略过
+        }
+    }
+
+    // 初始化扫描器 (按指定摄像头ID启动)
+    async function startScanner(cameraId = null) {
+        if (!html5QrCode) {
+            // 创建实例: 使用实验性功能提高帧率
+            html5QrCode = new Html5Qrcode("reader", {
+                verbose: false,  // 关闭日志
+                formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE,
+                                    Html5QrcodeSupportedFormats.EAN_13,
+                                    Html5QrcodeSupportedFormats.EAN_8,
+                                    Html5QrcodeSupportedFormats.CODE_128,
+                                    Html5QrcodeSupportedFormats.CODE_39,
+                                    Html5QrcodeSupportedFormats.CODE_93,
+                                    Html5QrcodeSupportedFormats.ITF,
+                                    Html5QrcodeSupportedFormats.UPC_A,
+                                    Html5QrcodeSupportedFormats.UPC_E,
+                                    Html5QrcodeSupportedFormats.DATA_MATRIX,
+                                    Html5QrcodeSupportedFormats.PDF_417
+                                  ]
+            });
+        }
+        
+        // 如果已经扫描中先停止
+        if (isScanning) {
+            await stopScannerInternal();
+        }
+
+        try {
+            // 获取可用摄像头设备 (如果未提前取得)
+            if (availableCameras.length === 0) {
+                const devices = await Html5Qrcode.getCameras();
+                availableCameras = devices;
+            }
+            if (availableCameras.length === 0) {
+                scanResultSpan.innerText = "❌ 未检测到摄像头，请检查权限或设备";
+                return false;
+            }
+
+            let targetCamera = cameraId;
+            if (!targetCamera) {
+                // 如果没有指定但 currentCameraId 存在则沿用，否则默认使用后置摄像头 (通常索引0是前置，索引1是后置)
+                if (currentCameraId && availableCameras.some(cam => cam.id === currentCameraId)) {
+                    targetCamera = currentCameraId;
+                } else {
+                    // 优先选择环境(后置)摄像头，若没有则取第一个
+                    const backCamera = availableCameras.find(cam => cam.label.toLowerCase().includes('back') || cam.label.toLowerCase().includes('rear'));
+                    targetCamera = backCamera ? backCamera.id : availableCameras[0].id;
+                    currentCameraId = targetCamera;
+                }
+            } else {
+                currentCameraId = targetCamera;
+            }
+
+            // 配置: fps 较高识别更流畅
+            const config = { fps: 18, qrbox: { width: 300, height: 300 }, aspectRatio: 1.333 };
+            await html5QrCode.start(targetCamera, config, onScanSuccess, (errorMessage) => {
+                // 忽略非关键解码错误日志避免控制台刷屏
+                // console.debug(`扫描帧错误: ${errorMessage}`);
+            });
+            isScanning = true;
+            scanResultSpan.innerText = "📡 扫描中... 对准二维码/条形码";
+            // 启动后检查是否支持闪光灯（需基于当前流）
+            checkTorchAvailability();
+            return true;
+        } catch (err) {
+            console.error("启动摄像头失败: ", err);
+            scanResultSpan.innerText = `❌ 启动失败: ${err.message || "请检查摄像头权限"}`;
+            isScanning = false;
+            return false;
+        }
+    }
+
+    // 停止扫描内部方法
+    async function stopScannerInternal() {
+        if (html5QrCode && isScanning) {
+            try {
+                await html5QrCode.stop();
+            } catch(e) {
+                console.warn("停止扫描出错", e);
+            }
+            isScanning = false;
+        }
+    }
+
+    // 停止并清理UI状态
+    async function stopScanner() {
+        await stopScannerInternal();
+        scanResultSpan.innerText = "⏹️ 扫描已停止，点击「启动摄像头」重新开始";
+        currentTorchState = false;
+        torchBtn.style.opacity = "0.7";
+    }
+
+    // 切换摄像头 (前后置切换)
+    async function switchCamera() {
+        if (!isScanning) {
+            // 未启动时尝试获取相机列表并切换备用ID，再启动
+            if (availableCameras.length === 0) {
+                try {
+                    const devices = await Html5Qrcode.getCameras();
+                    availableCameras = devices;
+                } catch(e) { scanResultSpan.innerText = "获取摄像头列表失败"; return; }
+            }
+            if (availableCameras.length < 2) {
+                scanResultSpan.innerText = "只有一个摄像头，无法切换";
+                return;
+            }
+            // 切换逻辑：找不同于 currentCameraId 的设备
+            const newCam = availableCameras.find(cam => cam.id !== currentCameraId);
+            if (newCam) {
+                currentCameraId = newCam.id;
+                await startScanner(currentCameraId);
+            } else {
+                scanResultSpan.innerText = "切换摄像头失败";
+            }
+        } else {
+            // 运行时切换: 需要重新启动扫描器
+            if (availableCameras.length < 2) {
+                scanResultSpan.innerText = "只有单个摄像头，不能切换";
+                return;
+            }
+            const newCam = availableCameras.find(cam => cam.id !== currentCameraId);
+            if (newCam) {
+                currentCameraId = newCam.id;
+                await startScanner(currentCameraId);
+            } else {
+                scanResultSpan.innerText = "未找到其他摄像头";
+            }
+        }
+    }
+
+    // 闪光灯控制 (移动端实验特性，部分浏览器支持)
+    async function toggleTorch() {
+        if (!isScanning || !html5QrCode) {
+            scanResultSpan.innerText = "请先启动摄像头再尝试闪光灯";
+            return;
+        }
+        try {
+            // 获取video元素，然后通过 MediaStreamTrack 的 applyConstraints 控制闪光灯
+            const videoElement = document.querySelector("#reader video");
+            if (!videoElement || !videoElement.srcObject) {
+                scanResultSpan.innerText = "无法获取视频流，闪光灯不可用";
+                return;
+            }
+            const stream = videoElement.srcObject;
+            const tracks = stream.getVideoTracks();
+            if (tracks.length === 0) return;
+            const track = tracks[0];
+            const capabilities = track.getCapabilities();
+            if (!capabilities.torch) {
+                scanResultSpan.innerText = "当前摄像头不支持闪光灯或设备无闪光灯";
+                return;
+            }
+            currentTorchState = !currentTorchState;
+            await track.applyConstraints({ advanced: [{ torch: currentTorchState }] });
+            torchBtn.style.background = currentTorchState ? "#fd9e4a" : "#1f3d38";
+            torchBtn.style.color = currentTorchState ? "#1e2a2a" : "#eef4f0";
+            scanResultSpan.innerText = currentTorchState ? "🔦 闪光灯已开启" : "💡 闪光灯已关闭";
+            setTimeout(() => {
+                if (isScanning) scanResultSpan.innerText = "📡 扫描中... 对准二维码/条形码";
+            }, 1000);
+        } catch (err) {
+            console.warn("闪光灯控制失败", err);
+            scanResultSpan.innerText = "闪光灯不可用, 请手动开启手机手电筒";
+        }
+    }
+
+    async function checkTorchAvailability() {
+        try {
+            const videoElement = document.querySelector("#reader video");
+            if (!videoElement || !videoElement.srcObject) return;
+            const stream = videoElement.srcObject;
+            const tracks = stream.getVideoTracks();
+            if (tracks.length === 0) return;
+            const capabilities = tracks[0].getCapabilities();
+            if (capabilities.torch) {
+                torchBtn.style.opacity = "1";
+                torchAvailable = true;
+            } else {
+                torchBtn.style.opacity = "0.5";
+                torchAvailable = false;
+            }
+        } catch(e) {}
+    }
+
+    // 初始化的时候请求权限，获取摄像头列表预加载
+    async function initialize() {
+        // 预先请求权限（静默获取用户授权，这样点击启动更顺畅）
+        try {
+            const devices = await Html5Qrcode.getCameras();
+            availableCameras = devices;
+            if (devices.length > 0) {
+                const preferred = devices.find(cam => cam.label.toLowerCase().includes('rear') || cam.label.toLowerCase().includes('back'));
+                currentCameraId = preferred ? preferred.id : devices[0].id;
+            }
+        } catch (err) {
+            console.warn("预加载摄像头列表失败，点击启动时会再次请求", err);
+        }
+        // 默认自动启动摄像头（提升体验）
+        await startScanner(currentCameraId);
+    }
+
+    // 清空历史
+    function clearHistory() {
+        scanHistory = [];
+        updateHistoryUI();
+        scanResultSpan.innerText = "历史已清空, 继续扫描吧";
+        setTimeout(() => {
+            if (isScanning) scanResultSpan.innerText = "📡 扫描中... 对准二维码/条形码";
+        }, 1500);
+    }
+
+    // 挂载事件
+    startBtn.addEventListener("click", async () => {
+        if (isScanning) {
+            scanResultSpan.innerText = "扫描器已在运行中";
+            return;
+        }
+        // 重新获取一下相机列表(确保权限)
+        if (availableCameras.length === 0) {
+            try {
+                const devices = await Html5Qrcode.getCameras();
+                availableCameras = devices;
+                if (devices.length > 0 && !currentCameraId) currentCameraId = devices[0].id;
+            } catch(e) { }
+        }
+        await startScanner(currentCameraId);
+    });
+    
+    switchBtn.addEventListener("click", switchCamera);
+    torchBtn.addEventListener("click", toggleTorch);
+    stopBtn.addEventListener("click", async () => {
+        await stopScanner();
+    });
+    clearHistoryBtn.addEventListener("click", clearHistory);
+
+    // 页面关闭前主动释放资源，避免摄像头一直占用
+    window.addEventListener("beforeunload", async () => {
+        if (html5QrCode && isScanning) {
+            try {
+                await html5QrCode.stop();
+            } catch(e) {}
+        }
+    });
+
+    // 启动初始化
+    initialize().catch(e => console.warn(e));
+</script>
+</body>
+</html>
