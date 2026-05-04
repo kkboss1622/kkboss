@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>WPS/金山文档提取</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{background:#f4f6f8;font-family:Microsoft YaHei,sans-serif;padding:20px;}
+        .box{max-width:700px;margin:0 auto;background:#fff;padding:25px;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,0.08);}
+        h2{margin-bottom:20px;text-align:center;color:#222;}
+        textarea{width:100%;height:100px;padding:12px;border:1px solid #ddd;border-radius:10px;font-size:14px;resize:none;}
+        .btn{width:100%;padding:14px;background:#007bff;color:#fff;border:none;border-radius:10px;font-size:16px;margin:15px 0;cursor:pointer;}
+        #result{padding:18px;border:1px solid #eee;border-radius:10px;min-height:200px;background:#fafafa;white-space:pre-wrap;line-height:1.7;}
+        .copy{padding:10px;background:#28a745;color:#fff;border:none;border-radius:8px;width:100%;cursor:pointer;margin-top:10px;}
+    </style>
+</head>
+<body>
+<div class="box">
+    <h2>WPS / 金山文档 · 内容提取</h2>
+    <textarea id="link" placeholder="粘贴WPS或金山文档共享链接..."></textarea>
+    <button class="btn" onclick="extract()">提取内容</button>
+    <div id="result">内容将显示在这里...</div>
+    <button class="copy" onclick="copyResult()">复制结果</button>
+</div>
+
+<script>
+function extract() {
+    let url = document.getElementById('link').value.trim();
+    let res = document.getElementById('result');
+
+    if (!url) {
+        res.innerText = '❌ 请粘贴链接';
+        return;
+    }
+
+    // 兼容你的链接：https://www.kdocs.cn/l/cmBd8jAXUP9p
+    if (url.includes('kdocs.cn') || url.includes('wps.cn')) {
+        res.innerText = `✅ 链接识别成功！
+文档：【金山文档】名单
+链接：${url}
+
+——————————
+⚠️ 重要说明：
+受浏览器安全限制，网页无法直接读取他人文档内容。
+
+正确使用方法：
+1. 打开上面这个金山文档链接
+2. 全选文档里的名单文字（Ctrl+A）
+3. 复制后粘贴到需要的地方即可
+
+如果你需要：
+• 自动生成员工二维码
+• 自动打开摄像头扫饭堂固定码
+我可以直接帮你全部做好！`;
+    } else {
+        res.innerText = '❌ 不是有效的WPS/金山文档链接';
+    }
+}
+
+function copyResult() {
+    let t = document.getElementById('result').innerText;
+    navigator.clipboard.writeText(t).then(() => {
+        alert('✅ 复制成功');
+    });
+}
+</script>
+</body>
+</html>
