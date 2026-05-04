@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>员工名单上传</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+#resultArea{max-height:450px;overflow-y:auto;}
+.item{padding:8px 0;border-bottom:1px solid #eee;}
+</style>
+</head>
+<body class="bg-light">
+<div class="container py-4">
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <h3 class="text-center mb-4">📋 员工名单汇总</h3>
+
+      <div class="mb-3">
+        <label class="form-label">上传 Excel（第一列=姓名，第二列=电话）</label>
+        <input type="file" id="fileInput" class="form-control" accept=".xlsx,.xls" multiple>
+      </div>
+
+      <div class="d-flex gap-2 mb-3">
+        <button class="btn btn-primary flex-grow-1" onclick="uploadFiles()">上传并解析</button>
+        <button class="btn btn-success flex-grow-1" onclick="showAllData()">显示全部名单</button>
+        <button class="btn btn-danger flex-grow-1" onclick="clearAll()">清空全部</button>
+      </div>
+
+      <hr>
+      <h5>已上传文件</h5>
+      <div id="fileList" class="mb-3 text-secondary"></div>
+
+      <hr>
+      <h5>人员名单（姓名 + 电话）</h5>
+      <div id="resultArea" class="border p-3 rounded bg-white">暂无数据</div>
+    </div>
+  </div>
+</div>
+
+<script>
+let fileDataMap = {};
+
+// 上传解析
+function uploadFiles() {
+  const input = document.getElementById('fileInput');
+  if (!input.files.length) {
+    alert('请选择文件');
+    return;
+  }
+
+  for (let i = 0; i < input.files.length; i++) {
+    const file = input.files[i];
+    if (!/\.(xlsx|xls)$/i.test(file.name)) continue;
+
+    // 同名文件询问替换
+    if (fileDataMap[file.name]) {
+      if (!confirm(`文件「${file.name}」已存在，是否替换？`)) {
+        continue;
+      }
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+      // 去掉第一行（表头），只保留 姓名(第1列) + 电话(第2列)
+      const list = json.slice(1).map(row => ({
+        姓名: row[0] || '',
+        电话: row[1] || ''
+      })).filter(item => item.姓名);
+
+      fileDataMap[file.name] = list;
+      refreshFileList();
+    };
+    reader.readAsArrayBuffer(file);
+  }
+  input.value = '';
+}
+
+// 刷新文件列表
+function refreshFileList() {
+  const list = document.getElementById('fileList');
+  const files = Object.keys(fileDataMap);
+  list.innerHTML = files.map((f, i) => `<div>${i+1}. ${f}</div>`).join('');
+}
+
+// 显示所有数据
+function showAllData() {
+  const area = document.getElementById('resultArea');
+  const allData = Object.values(fileDataMap).flat();
+
+  if (allData.length === 0) {
+    area.innerHTML = '暂无数据';
+    return;
+  }
+
+  let html = '';
+  allData.forEach(item => {
+    html += `<div class="item">👤 ${item.姓名} &nbsp;&nbsp; 📞 ${item.电话}</div>`;
+  });
+  area.innerHTML = html;
+}
+
+// 清空
+function clearAll() {
+  fileDataMap = {};
+  refreshFileList();
+  document.getElementById('resultArea').innerHTML = '暂无数据';
+}
+</script>
+</body>
+</html>
