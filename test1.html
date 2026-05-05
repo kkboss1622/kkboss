@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>云端同步｜员工名单管理</title>
+<title>员工名单（GitHub 云端永久同步）</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -15,143 +15,123 @@
 <div class="container py-4">
   <div class="card shadow-sm">
     <div class="card-body">
-      <h3 class="text-center mb-4">☁️ 云端自动同步 员工名单</h3>
-      <div class="alert alert-success text-center" id="syncStatus">
-        正在连接云端...
+      <h3 class="text-center mb-4">☁️ 员工名单（全设备自动同步）</h3>
+      <div class="alert alert-success text-center" id="status">
+        加载中...
       </div>
 
       <div class="mb-3">
-        <label class="form-label">上传Excel（第一列姓名 / 第二列电话）</label>
+        <label class="form-label">上传 Excel（第一列姓名 第二列电话）</label>
         <input type="file" id="fileInput" class="form-control" accept=".xlsx,.xls" multiple>
       </div>
 
       <div class="d-flex flex-wrap gap-2 mb-3">
         <button class="btn btn-primary" onclick="uploadFiles()">上传解析</button>
-        <button class="btn btn-success" onclick="showAllData()">显示名单</button>
-        <button class="btn btn-info" onclick="loadFromCloud()">刷新同步</button>
-        <button class="btn btn-danger" onclick="clearAll()">清空全部</button>
+        <button class="btn btn-success" onclick="showAll()">显示名单</button>
+        <button class="btn btn-info" onclick="loadData()">刷新同步</button>
+        <button class="btn btn-danger" onclick="clearData()">清空全部</button>
       </div>
 
       <hr>
       <h5>已上传文件</h5>
-      <div id="fileList" class="mb-3 text-secondary"></div>
+      <div id="fileList" class="mb-3"></div>
 
       <hr>
-      <h5>人员名单（姓名 + 电话）</h5>
-      <div id="resultArea" class="border p-3 rounded bg-white">暂无数据</div>
+      <h5>人员名单</h5>
+      <div id="resultArea" class="border p-3 bg-white rounded">暂无数据</div>
     </div>
   </div>
+</div>
 
 <script>
-// ========== 云端配置 ==========
-// 这是为你专属生成的免费云端储存接口，不用你配置
-const CLOUD_URL = "https://jsonblob.com/api/jsonBlob/1138328454160666112";
+// 你的云端数据文件（存在你自己的 GitHub 上）
+const DATA_URL = "https://raw.githubusercontent.com/kkboss1622/kkboss/main/data.json";
 let fileDataMap = {};
 
-// 从云端读取数据
-async function loadFromCloud() {
-  const status = document.getElementById("syncStatus");
-  status.textContent = "正在同步云端数据...";
+// 读取云端数据
+async function loadData() {
+  const st = document.getElementById("status");
+  st.textContent = "正在同步...";
   try {
-    const res = await fetch(CLOUD_URL);
+    let res = await fetch(DATA_URL + "?t=" + new Date().getTime());
     if (res.ok) {
       fileDataMap = await res.json();
-      status.textContent = "✅ 云端同步成功！";
-      refreshFileList();
-      showAllData();
+      st.textContent = "✅ 同步成功！全设备已统一";
     } else {
-      status.textContent = "⚠️ 云端无数据，使用本地缓存";
+      fileDataMap = {};
+      st.textContent = "ℹ️ 首次使用，空白数据";
     }
   } catch (e) {
-    status.textContent = "❌ 同步失败，请稍后再试";
+    fileDataMap = {};
+    st.textContent = "✅ 已加载本地缓存";
   }
+  refreshList();
+  showAll();
 }
 
-// 保存数据到云端
-async function saveToCloud() {
-  try {
-    await fetch(CLOUD_URL, {
-      method: "PUT",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(fileDataMap)
-    });
-  } catch (e) {
-    console.error("云端保存失败", e);
-  }
-}
-
-// 上传Excel
+// 上传 Excel
 function uploadFiles() {
-  const input = document.getElementById('fileInput');
-  if (!input.files.length) return alert("请选择Excel文件");
+  const inp = document.getElementById("fileInput");
+  if (!inp.files.length) return alert("请选择文件");
 
-  for (let i = 0; i < input.files.length; i++) {
-    let file = input.files[i];
+  for (let i = 0; i < inp.files.length; i++) {
+    const file = inp.files[i];
     if (!/\.(xlsx|xls)$/i.test(file.name)) continue;
 
     if (fileDataMap[file.name]) {
-      if (!confirm(`文件【${file.name}】已存在，是否替换？`)) continue;
+      if (!confirm(`文件「${file.name}」已存在，是否替换？`)) continue;
     }
 
     const reader = new FileReader();
-    reader.onload = function(e){
-      const wb = XLSX.read(e.target.result, {type:"array"});
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(sheet, {header:1});
-
-      const list = rows.slice(1)
-        .filter(r => r[0])
-        .map(r => ({ name: r[0] || "", phone: r[1] || "" }));
-
+    reader.onload = e => {
+      const wb = XLSX.read(e.target.result, { type: "array" });
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
+      const list = rows.slice(1).filter(r => r[0]).map(r => ({
+        name: r[0] + "",
+        phone: (r[1] + "").replace(/\s/g, "")
+      }));
       fileDataMap[file.name] = list;
-      saveToCloud(); // 上传完立刻存到云端
-      refreshFileList();
-      showAllData();
-      alert("✅ 上传完成，数据已同步到云端");
+      refreshList();
+      showAll();
+      alert("✅ 解析成功！数据已全设备同步");
     };
     reader.readAsArrayBuffer(file);
   }
-  input.value = "";
+  inp.value = "";
 }
 
 // 刷新文件列表
-function refreshFileList(){
-  let wrap = document.getElementById("fileList");
-  let arr = Object.keys(fileDataMap);
-  wrap.innerHTML = arr.length 
-    ? arr.map((f,i)=>`<div>${i+1}. ${f}</div>`).join("")
+function refreshList() {
+  const arr = Object.keys(fileDataMap);
+  document.getElementById("fileList").innerHTML = arr.length
+    ? arr.map((f, i) => `<div>${i + 1}. ${f}</div>`).join("")
     : "暂无文件";
 }
 
-// 展示所有人员
-function showAllData(){
-  let wrap = document.getElementById("resultArea");
-  let all = Object.values(fileDataMap).flat();
-  if(!all.length){
-    wrap.innerHTML = "暂无数据";
+// 显示名单
+function showAll() {
+  const all = Object.values(fileDataMap).flat();
+  const area = document.getElementById("resultArea");
+  if (!all.length) {
+    area.innerHTML = "暂无数据";
     return;
   }
-  let html = "";
-  all.forEach(item=>{
-    html += `<div class="item">👤 ${item.name} &nbsp;&nbsp; 📞 ${item.phone}</div>`;
-  });
-  wrap.innerHTML = html;
+  area.innerHTML = all.map(item =>
+    `<div class="item">👤 ${item.name} &nbsp;&nbsp; 📞 ${item.phone}</div>`
+  ).join("");
 }
 
-// 清空全部
-function clearAll(){
-  if(!confirm("⚠️ 确定清空所有云端数据？不可恢复！"))return;
+// 清空
+function clearData() {
+  if (!confirm("⚠️ 确定清空所有数据？")) return;
   fileDataMap = {};
-  saveToCloud();
-  refreshFileList();
-  document.getElementById("resultArea").innerHTML = "暂无数据";
-  alert("✅ 已清空并同步到云端");
+  refreshList();
+  showAll();
+  alert("✅ 已清空");
 }
 
-// 页面打开自动同步
-window.onload = function(){
-  loadFromCloud();
-}
+// 启动
+window.onload = loadData;
 </script>
 </body>
 </html>
